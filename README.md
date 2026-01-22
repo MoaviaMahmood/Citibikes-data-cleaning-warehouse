@@ -20,7 +20,6 @@ The final output is a **fully cleaned dataset** saved as a CSV file.
 ## Dataset
 
 - Source: Citi Bike Trip Data (CSV files)
-- Files Location: `./data/`
 - Format: CSV
 - Data Includes:
   - Trip duration
