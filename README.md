@@ -1,21 +1,28 @@
-# Citi Bike Trip Data Cleaning & Preprocessing (Python)
+# Citi Bike ETL Pipeline (Python & PostgreSQL)
 
 ## Project Overview
 
-This project focuses on **loading, merging, cleaning, and preprocessing Citi Bike trip data** using **Python and Pandas**.  
-Multiple monthly CSV files are combined into a single dataset, followed by extensive data cleaning to prepare the data for **EDA, analytics, or machine learning**.
+This project implements an **end-to-end ETL (Extract, Transform, Load) pipeline** for **Citi Bike trip data** using **Python, Pandas, and PostgreSQL**.
 
-The final output is a **fully cleaned dataset** saved as a CSV file.
+Multiple monthly CSV files are:
+- **Extracted** from disk
+- **Cleaned & transformed** using Pandas
+- **Loaded** into a PostgreSQL database using SQLAlchemy
 
----
+The final output is a **clean, analysis-ready dataset** stored both as a CSV file and a PostgreSQL table.
 
-## Tools & Libraries Used
 
-- Python
-- Pandas
-- Glob
+##  ETL Architecture
+<img width="1536" height="1024" alt="Image" src="https://github.com/user-attachments/assets/09cfce17-192b-47cd-8707-daac72a28620" />
 
----
+## Tools & Technologies
+
+- **Python**
+- **Pandas** – data cleaning & transformation
+- **SQLAlchemy** – database connection
+- **PostgreSQL** – data storage
+- **Glob** – file handling
+- **VS Code / Jupyter Notebook**
 
 ## Dataset
 
@@ -30,85 +37,111 @@ The final output is a **fully cleaned dataset** saved as a CSV file.
   - Birth year
   - Gender
 
----
-
 ## Project Workflow
 
-### Load a Single CSV File
-- Reads one Citi Bike CSV file
-- Displays basic structure and data types
+## Extract
 
-### Merge Multiple CSV Files
-- Uses `glob` to read all CSV files from the data folder
-- Concatenates the first 11 CSV files into one DataFrame
-- Saves merged data as: concat_data_citibike.csv
+- Reads a single CSV file for inspection
+- Automatically loads and concatenates **multiple monthly CSV files**
+- Saves merged data into `concat_data_citibike.csv`
 
----
+```python
+csv_files = sorted(glob.glob('../data/*.csv'))[:11]
+df = pd.concat((pd.read_csv(f) for f in csv_files), ignore_index=True)
+```
 
-## Data Cleaning & Preprocessing Steps
+## Transform (Data Cleaning)
+
+The following cleaning and validation steps are applied:
+
+### Time Columns
+
+-Convert Start Time and Stop Time to datetime
+-Remove records where:
+  - Stop Time is missing
+  - Start Time > Stop Time
 
 ### Trip Duration
-- Converted to numeric
-- Missing values handled
-- Cast to integer
 
-### Start & Stop Time
-- Converted to `datetime`
-- Invalid or missing values removed
-- Ensured: Start Time <= Stop Time
+- Convert to numeric
+- Handle invalid and missing values
 
-### Station Information
-- Cleaned station IDs, names, latitudes, and longitudes
-- Converted IDs to integers
-- Latitude & longitude converted to numeric
-- Absolute values applied to longitude
+### Station Data
 
-### Bike ID
-- Converted to numeric
-- Missing values handled
+- Clean and validate:
+  - Station IDs
+  - Station Names
+  - Latitude & Longitude
+- Convert coordinates to numeric
+- Remove nulls
+- Normalize longitude values
 
-### User Type
-- Missing values replaced with `"Unknown"`
-- Rows with `"Unknown"` removed later
+### User Information
 
-### Birth Year
-- Converted to numeric
-- Invalid values replaced with `0`
-- Rows with `0` removed
+- Gender
+  - Convert numeric codes to labels (Male, Female, Unknown)
+  - Remove Unknown
+- User Type
+  - Fill missing values
+  - Remove Unknown
+- Birth Year
+  - Convert to numeric
+  - Remove invalid (0) values
 
-### Gender
-- Converted from numeric codes:
-- `0 → Unknown`
-- `1 → Male`
-- `2 → Female`
-- Rows with `"Unknown"` removed
+### Final Filters
 
----
+- Remove invalid timestamps
+- Remove incomplete demographic data
+- Ensure clean geographic values
 
-## Final Data Cleaning Filters
+## Load
 
-The dataset was filtered to remove:
-- Invalid time records
-- Missing or invalid birth years
-- Unknown gender
-- Unknown user types
+### Save Clean Data to CSV
 
----
+```python
+df_clean.to_csv('clean_data_citibike.csv', index=False)
+```
 
-## Output Files
+```python
+engine = create_engine(
+    f'postgresql://{pg_username}:{pg_password}@{pg_host}:{pg_port}/{pg_db}'
+)
+```
+### Load Data into PostgreSQL
+```python
+df_clean.to_sql(
+    'citibike_trips',
+    engine,
+    if_exists='replace',
+    index=False
+)
+```
 
-| File Name | Description |
-|---------|------------|
-| `concat_data_citibike.csv` | Raw merged dataset |
-| `clean_data_citibike.csv` | Fully cleaned dataset |
+### Data Validation
 
----
+After loading, a SQL query verifies successful ingestion:
+```sql
+SELECT COUNT(*) FROM citibike_trips;
+```
+
+Example output:
+
+Total records in citibike_trips table: XXXXXXX
 
 ## Final Output
 
-- Cleaned dataset stored in `df2`
+- clean_data_citibike.csv – cleaned dataset
+- citibike_trips table in PostgreSQL
 - Ready for:
-- Exploratory Data Analysis (EDA)
-- Data Visualization
-- Machine Learning
-- SQL Import
+  - Exploratory Data Analysis (EDA)
+  - SQL analytics
+  - Dashboards
+  - Machine Learning
+
+## Future Improvements
+
+- Add logging instead of print statements
+- Use environment variables for DB credentials
+- Add data quality checks
+- Schedule pipeline using Airflow
+- Partition data by month/year
